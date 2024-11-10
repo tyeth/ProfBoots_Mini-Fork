@@ -7,6 +7,10 @@
 #include <iostream>
 #include <sstream>
 
+#include <Wire.h>
+#include <Adafruit_MotorShield.h>
+#include "utility/Adafruit_MS_PWMServoDriver.h"
+
 #if defined(ESP32)
 #include <AsyncTCP.h> // by dvarrel
 #include <WiFi.h>
@@ -31,6 +35,8 @@
 #define rightMotor0 33  // Used for controlling the right motor movementc:\Users\JohnC\Desktop\SOLIDWORKS Connected.lnk
 #define rightMotor1 32  // Used for controlling the right motor movement
 
+#define motor_featherwing_i2c_address 0x60 // default, change if needed
+
 // global constants
 
 extern const char* htmlHomePage PROGMEM;
@@ -40,6 +46,14 @@ const char* ssid = "MiniFork";
 
 Servo steeringServo;
 Servo mastTiltServo;
+
+#ifdef motor_featherwing_i2c_address
+Adafruit_MotorShield AFMS = Adafruit_MotorShield(motor_featherwing_i2c_address); 
+Adafruit_DCMotor *leftMotor = AFMS.getMotor(1);
+Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);
+Adafruit_DCMotor *mastMotor = AFMS.getMotor(3);
+Adafruit_DCMotor *auxMotor = AFMS.getMotor(4);
+#endif
 
 int servoDelay = 0;
 float steeringServoValue = 86;
@@ -73,7 +87,16 @@ void mastTiltControl(int mastTiltServoValue)
 }
 
 void mastControl(int mastValue){
-if (mastValue == 5) {
+#ifdef motor_featherwing_i2c_address
+   if (mastValue == 5) {
+    moveMotor(mastMotor, 255); // Full speed forward
+  } else if (mastValue == 6) {
+    moveMotor(mastMotor, -255); // Full speed backward
+  } else {
+    moveMotor(mastMotor, 0); // Stop
+  }
+#else
+  if (mastValue == 5) {
     digitalWrite(mastMotor0, HIGH);
     digitalWrite(mastMotor1, LOW);
   } else if (mastValue == 6) {
@@ -83,9 +106,28 @@ if (mastValue == 5) {
     digitalWrite(mastMotor0, LOW);
     digitalWrite(mastMotor1, LOW);
   }
+#endif
 }
+
 void processThrottle(int throttle) {
   throttleValue = throttle;
+#ifdef motor_featherwing_i2c_address
+if (throttleValue > 15 || throttleValue < -15) {
+    if(steeringServoValue > 100) {
+      moveMotor(leftMotor, throttleValue * steeringAdjustment);
+      moveMotor(rightMotor, throttleValue);
+    } else if (steeringServoValue < 80) {
+      moveMotor(leftMotor, throttleValue);
+      moveMotor(rightMotor, throttleValue * steeringAdjustment);
+    } else {
+      moveMotor(leftMotor, throttleValue);
+      moveMotor(rightMotor, throttleValue);
+    }
+  } else {
+    moveMotor(leftMotor, 0);
+    moveMotor(rightMotor, 0);
+  }
+#else
   if (throttleValue > 15 || throttleValue < -15) {
     if(steeringServoValue > 100) {
       moveMotor(leftMotor0, leftMotor1, throttleValue * steeringAdjustment);
@@ -101,7 +143,20 @@ void processThrottle(int throttle) {
     moveMotor(leftMotor0, leftMotor1, 0);
     moveMotor(rightMotor0, rightMotor1, 0);
   }
+#endif
 }
+#ifdef motor_featherwing_i2c_address
+ void moveMotor(Adafruit_DCMotor *motor, int velocity) {
+  if (velocity > 15) {
+    motor->setSpeed(velocity);
+    motor->run(FORWARD);
+  } else if (velocity < -15) {
+    motor->setSpeed(-velocity);
+    motor->run(BACKWARD);
+  } else {
+    motor->run(RELEASE);
+  }
+#else
 void moveMotor(int motorPin1, int motorPin0, int velocity) {
   if (velocity > 15) {
     analogWrite(motorPin0, velocity);
@@ -113,6 +168,7 @@ void moveMotor(int motorPin1, int motorPin0, int velocity) {
     analogWrite(motorPin0, 0);
     analogWrite(motorPin1, 0);
   }
+#endif
 }
 void lightControl()
 {
@@ -223,6 +279,9 @@ void onCarInputWebSocketEvent(AsyncWebSocket *server,
 
 void setUpPinModes()
 {
+ 
+#ifdef motor_featherwing_i2c_address
+#else
   pinMode(mastMotor0, OUTPUT);
   pinMode(mastMotor1, OUTPUT);
   pinMode(auxAttach0, OUTPUT);
@@ -236,7 +295,7 @@ void setUpPinModes()
   digitalWrite(mastMotor1, LOW);
   digitalWrite(auxAttach0, LOW);
   digitalWrite(auxAttach1, LOW);
-
+#endif
   steeringServo.attach(steeringServoPin);
   mastTiltServo.attach(mastTiltServoPin);
   steeringControl(steeringServoValue);
@@ -261,7 +320,11 @@ void setup(void)
   server.addHandler(&wsCarInput);
 
   server.begin();
-  //Serial.println("HTTP server started");
+  Serial.println("HTTP server started");
+
+  Serial.println("Motor driver initialising...");
+  AFMS.begin();  // create with the default frequency 1.6KHz
+  Serial.println("Motor driver initialised");
 }
 
 void loop()
