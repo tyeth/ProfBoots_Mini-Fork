@@ -1,6 +1,8 @@
 
+from asyncio import create_task, gather, run, sleep as async_sleep
 import time
 import board
+import analogio
 import digitalio
 import pwmio
 from adafruit_motorkit import MotorKit
@@ -13,7 +15,10 @@ from html_home_page import html_home_page
 # Constants
 I2C_MOTOR_DRIVER = False
 I2C_MOTOR_DRIVER_ADDRESS = 0x60
+REPORT_BATTERY = False
+BATTERY_PIN = None
 if board.board_id == "adafruit_feather_huzzah32":
+    BATTERY_PIN = analogio.AnalogIn(board.VOLTAGE_MONITOR)
     STEERING_SERVO_PIN = board.D27
     MAST_TILT_SERVO_PIN = board.D33
     CAB_LIGHTS_PIN = board.D15
@@ -113,16 +118,19 @@ import ssl
 import os
 import microcontroller
 import adafruit_requests as requests
-from adafruit_httpserver import Server, Request, Response, POST
+# from adafruit_httpserver import Server, Request, Response, POST
 
-ipv4 =  ipaddress.IPv4Address("192.168.50.177")
-netmask =  ipaddress.IPv4Address("255.255.255.0")
-gateway =  ipaddress.IPv4Address("192.168.50.1")
-wifi.radio.set_ipv4_address(ipv4=ipv4,netmask=netmask,gateway=gateway)
-#  connect to your SSID
-wifi.radio.connect(os.getenv('CIRCUITPY_WIFI_SSID'), os.getenv('CIRCUITPY_WIFI_PASSWORD'))
+from adafruit_httpserver import Server, Request, Response, Websocket, GET
+
+# ipv4 =  ipaddress.IPv4Address("192.168.50.177")
+# netmask =  ipaddress.IPv4Address("255.255.255.0")
+# gateway =  ipaddress.IPv4Address("192.168.50.1")
+# wifi.radio.set_ipv4_address(ipv4=ipv4,netmask=netmask,gateway=gateway)
+# #  connect to your SSID
+# wifi.radio.connect(os.getenv('CIRCUITPY_WIFI_SSID'), os.getenv('CIRCUITPY_WIFI_PASSWORD'))
 
 print("Connected to WiFi")
+websocket: Websocket = None
 pool = socketpool.SocketPool(wifi.radio)
 server = Server(pool, None, debug=True)
 
@@ -171,14 +179,23 @@ def mast_tilt_control(mast_tilt_servo_value):
 
 def mast_control(mast_value):
     if mast_value == 5:
-        mast_motor0.value = True
-        mast_motor1.value = False
+        if mast_motor1 is None:
+            mast_motor0.throttle = 0.5
+        else:
+            mast_motor0.value = True
+            mast_motor1.value = False
     elif mast_value == 6:
-        mast_motor0.value = False
-        mast_motor1.value = True
+        if mast_motor1 is None:
+            mast_motor0.throttle = -0.5
+        else:
+            mast_motor0.value = False
+            mast_motor1.value = True
     else:
-        mast_motor0.value = False
-        mast_motor1.value = False
+        if mast_motor1 is None:
+            mast_motor0.throttle = 0 # consider free wheeling with None
+        else:
+            mast_motor0.value = False
+            mast_motor1.value = False
 
 def process_throttle(throttle):
     global throttle_value
@@ -221,12 +238,18 @@ def light_control():
     global lights_on, light_switch_time
     if (time.monotonic() - light_switch_time) > 0.2:
         if lights_on:
-            aux_attach0.value = False
-            aux_attach1.value = False
+            if aux_attach1 is None:
+                aux_attach0.throttle = 0
+            else:
+                aux_attach0.value = False
+                aux_attach1.value = False
             lights_on = False
         else:
-            aux_attach0.value = True
-            aux_attach1.value = False
+            if aux_attach1 is None:
+                aux_attach0.throttle = 1.0
+            else:
+                aux_attach0.value = True
+                aux_attach1.value = False
             lights_on = True
         light_switch_time = time.monotonic()
 
@@ -254,7 +277,6 @@ def handle_root(request):
 def handle_not_found(request):
     return "404 Not Found", "text/plain", "File Not Found"
 
-@server.websocket("/ws")
 def on_car_input_websocket_event(data):
     key, value = data.split(',')
     value_int = int(value)
@@ -298,4 +320,52 @@ def loop():
 
 # Main program
 setup()
-loop()
+# loop()
+
+
+@server.route("/CarInput", GET)
+def connect_client(request: Request):
+    global websocket  # pylint: disable=global-statement
+
+    if websocket is not None:
+        websocket.close()  # Close any existing connection
+
+    websocket = Websocket(request)
+
+    return websocket
+
+
+async def handle_http_requests():
+    while True:
+        server.poll()
+
+        await async_sleep(0)
+
+
+async def handle_websocket_requests():
+    while True:
+        if websocket is not None:
+            if (data := websocket.receive(fail_silently=True)) is not None:
+                on_car_input_websocket_event(data)
+        await async_sleep(0)
+
+
+async def send_websocket_messages():
+    while True:
+        if websocket is not None:
+            if REPORT_BATTERY and BATTERY_PIN is not None:
+                battery_voltage = BATTERY_PIN.value / 65535 * 5 # /65535 * BATTERY_PIN.reference_voltage * 2
+                websocket.send_message(str(battery_voltage), fail_silently=True)
+
+        await async_sleep(2)
+
+
+async def main():
+    await gather(
+        create_task(handle_http_requests()),
+        create_task(handle_websocket_requests()),
+        create_task(send_websocket_messages()),
+    )
+
+
+run(main())

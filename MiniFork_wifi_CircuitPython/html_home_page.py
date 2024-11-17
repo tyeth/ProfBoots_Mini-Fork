@@ -186,9 +186,11 @@ html_home_page = """<!DOCTYPE html>
 </tr>
 </tr>
     </table>
-  
+<a href="javascript:window.location = 'http://' + window.location.hostname + ':8080/code/';" style="text-decoration:none; color:black;"><h2>Click here to edit the code</h2></a>
+
+
     <script>
-      var webSocketCarInputUrl = "ws:\/\/" + window.location.hostname + "/CarInput";      
+      var webSocketCarInputUrl = "ws://" + window.location.hostname + "/CarInput";      
       var websocketCarInput;
       const throttleSlider = document.getElementById('throttle');
       const steeringSlider = document.getElementById('steering');
@@ -205,7 +207,10 @@ html_home_page = """<!DOCTYPE html>
       {
         websocketCarInput = new WebSocket(webSocketCarInputUrl);
         websocketCarInput.onclose   = function(event){setTimeout(initCarInputWebSocket, 2000);};
-        websocketCarInput.onmessage = function(event){};        
+        websocketCarInput.onmessage = function(event){
+          // fields: battery level, etc (only battery so far)
+          console.log('Received data: ' + event.data);
+        };        
       }
       
       function sendButtonInput(key, value) 
