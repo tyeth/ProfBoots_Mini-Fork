@@ -1,8 +1,8 @@
 ## Author: Tyeth Gundry
 ## TODO: Get OTA type setup going where it checks https://api.github.com/repos/tyeth/ProfBoots_Mini-Fork/contents/MiniFork_wifi_CircuitPython/code.py?ref=adafruit_motor_library
 ##       and compares the sha to the current code.py sha. If different, check if we need to 
-#        download the new code.py and use supervisor.set_next_code_file to load new version,
-#        then no rollback needed if error.
+#        download the new code.py (or already have and matches - free space issues) and use
+#        supervisor.set_next_code_file to load new version, then no rollback needed if error.
 from asyncio import create_task, gather, run, sleep as async_sleep
 import time
 import board
