@@ -19,6 +19,7 @@ REPORT_BATTERY = False
 BATTERY_PIN = None
 if board.board_id == "adafruit_feather_huzzah32":
     BATTERY_PIN = analogio.AnalogIn(board.VOLTAGE_MONITOR)
+    REPORT_BATTERY = True
     MAST_TILT_SERVO_PIN = board.D27
     STEERING_SERVO_PIN = board.D33
     CAB_LIGHTS_PIN = board.D15
