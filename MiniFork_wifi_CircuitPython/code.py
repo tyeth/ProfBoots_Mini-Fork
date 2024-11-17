@@ -11,16 +11,22 @@ import digitalio
 import pwmio
 from adafruit_motorkit import MotorKit
 from adafruit_motor import servo, motor
-# from adafruit_esp32spi import adafruit_esp32spi
-# from adafruit_esp32spi import adafruit_esp32spi_wifimanager
 import adafruit_requests as requests
 from html_home_page import html_home_page
+import wifi
+import socketpool
+import ipaddress
+import ssl
+import os
+import microcontroller
+from adafruit_httpserver import Server, Request, Response, Websocket, GET
 
 # Constants
 I2C_MOTOR_DRIVER = False
 I2C_MOTOR_DRIVER_ADDRESS = 0x60
 REPORT_BATTERY = False
 BATTERY_PIN = None
+
 if board.board_id == "adafruit_feather_huzzah32":
     BATTERY_PIN = analogio.AnalogIn(board.VOLTAGE_MONITOR)
     REPORT_BATTERY = True
@@ -60,12 +66,11 @@ if board.board_id == "adafruit_feather_huzzah32":
         LEFT_MOTOR1_PIN = board.D19
         RIGHT_MOTOR0_PIN = board.D33
         RIGHT_MOTOR1_PIN = board.D32
-
-
 else: # adafruit feather bluetooth nrf52840 pins:
     raise NotImplementedError("This board is not supported.")
 
-# WiFi credentials
+# WiFi credentials if hosting AP
+HOST_AP = False
 SSID = "MiniFork"
 PASSWORD = ""
 
@@ -104,54 +109,39 @@ if not I2C_MOTOR_DRIVER:
     right_motor1 = digitalio.DigitalInOut(RIGHT_MOTOR1_PIN)
     right_motor1.direction = digitalio.Direction.OUTPUT
 
+# Initialize WiFi
+if HOST_AP:
+    print("Starting AP..")
+    ipv4 = ipaddress.IPv4Address("192.168.4.1")
+    netmask = ipaddress.IPv4Address("255.255.255.0")
+    gateway = ipaddress.IPv4Address("192.168.4.1")
+    wifi.radio.set_ipv4_address(ipv4=ipv4, netmask=netmask, gateway=gateway)
+    wifi.radio.start_ap(SSID, PASSWORD)
+    print("AP started")
+else:
+    if wifi.radio.connected:
+        print("Already connected to WiFi")
+    else:
+        print("Connecting to WiFi..", end="")
+        wifi.radio.connect(os.getenv('CIRCUITPY_WIFI_SSID'), os.getenv('CIRCUITPY_WIFI_PASSWORD'))
+        while not wifi.radio.connected:
+            print(".", end="")
+            time.sleep(1)
+    print("Connected to WiFi")
 
-# # Initialize WiFi
-# esp32_cs = digitalio.DigitalInOut(board.D10)
-# esp32_ready = digitalio.DigitalInOut(board.D9)
-# esp32_reset = digitalio.DigitalInOut(board.D5)
-
-# spi = board.SPI()
-# esp = adafruit_esp32spi.ESP_SPIcontrol(spi, esp32_cs, esp32_ready, esp32_reset)
-# wifi = adafruit_esp32spi_wifimanager.ESPSPI_WiFiManager(esp, secrets)
-
-# # Web server setup
-# server = requests.Session(wifi)
-import wifi
-import socketpool
-import ipaddress
-import ssl
-import os
-import microcontroller
-import adafruit_requests as requests
-# from adafruit_httpserver import Server, Request, Response, POST
-
-from adafruit_httpserver import Server, Request, Response, Websocket, GET
-
-# ipv4 =  ipaddress.IPv4Address("192.168.50.177")
-# netmask =  ipaddress.IPv4Address("255.255.255.0")
-# gateway =  ipaddress.IPv4Address("192.168.50.1")
-# wifi.radio.set_ipv4_address(ipv4=ipv4,netmask=netmask,gateway=gateway)
-# #  connect to your SSID
-# wifi.radio.connect(os.getenv('CIRCUITPY_WIFI_SSID'), os.getenv('CIRCUITPY_WIFI_PASSWORD'))
-
-print("Connected to WiFi")
 websocket: Websocket = None
 pool = socketpool.SocketPool(wifi.radio)
 server = Server(pool, None, debug=True)
 
 @server.route("/")
 def base(request: Request):  # pylint: disable=unused-argument
-    #  serve the HTML f string
-    #  with content type text/html
     print("serving home page")
-    return Response(request, f"{html_home_page}", content_type='text/html')
+    return Response(request, html_home_page, content_type='text/html')
 
 print("starting server..")
-# startup the server
 try:
-    server.start(str(wifi.radio.ipv4_address),80)
+    server.start(str(wifi.radio.ipv4_address), 80)
     print("Listening on http://%s:80" % wifi.radio.ipv4_address)
-#  if the server fails to begin, restart the pico w
 except OSError:
     time.sleep(5)
     print("restarting..")
@@ -162,7 +152,7 @@ servo_delay = 0
 steering_servo_value = 86
 steering_adjustment = 1
 throttle_value = 0
-steering_trim = 0  # 60?
+steering_trim = 0
 mast_tilt_servo_value = 90
 mast_tilt_value = 90
 light_switch_time = 0
@@ -279,13 +269,6 @@ def mast_tilt(mast_tilt):
             servo_delay = 0
         servo_delay += 1
 
-def handle_root(request):
-    
-    return "200 OK", "text/html", html_home_page
-
-def handle_not_found(request):
-    return "404 Not Found", "text/plain", "File Not Found"
-
 def on_car_input_websocket_event(data):
     key, value = data.split(',')
     value_int = int(value)
@@ -306,50 +289,20 @@ def setup():
     steering_control(steering_servo_value)
     mast_tilt_control(mast_tilt_servo_value)
 
-def loop():
-    # while True:
-    #     # Handle web server requests
-    #     request = server.get("/")
-    #     if request:
-    #         if request.path == "/":
-    #             response = handle_root(request)
-    #         else:
-    #             response = handle_not_found(request)
-    #         server.send(response)
-    #     time.sleep(0.1)
-    
-    while True:
-        try:
-            #  poll the server for incoming/outgoing requests
-            server.poll()
-        # pylint: disable=broad-except
-        except Exception as e:
-            print(e)
-            continue
-
-# Main program
-setup()
-# loop()
-
 
 @server.route("/CarInput", GET)
 def connect_client(request: Request):
     global websocket  # pylint: disable=global-statement
-
     if websocket is not None:
         websocket.close()  # Close any existing connection
-
     websocket = Websocket(request)
-
     return websocket
 
 
 async def handle_http_requests():
     while True:
         server.poll()
-
         await async_sleep(0)
-
 
 async def handle_websocket_requests():
     while True:
@@ -358,16 +311,13 @@ async def handle_websocket_requests():
                 on_car_input_websocket_event(data)
         await async_sleep(0)
 
-
 async def send_websocket_messages():
     while True:
         if websocket is not None:
             if REPORT_BATTERY and BATTERY_PIN is not None:
                 battery_voltage = BATTERY_PIN.value / 65535 * 5 # /65535 * BATTERY_PIN.reference_voltage * 2
                 websocket.send_message(str(battery_voltage), fail_silently=True)
-
         await async_sleep(2)
-
 
 async def main():
     await gather(
@@ -376,5 +326,6 @@ async def main():
         create_task(send_websocket_messages()),
     )
 
-
+# Main program
+setup()
 run(main())
