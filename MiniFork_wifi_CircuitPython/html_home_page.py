@@ -186,7 +186,7 @@ html_home_page = """<!DOCTYPE html>
 </tr>
 </tr>
     </table>
-<a href="javascript:window.location = 'http://' + window.location.hostname + ':8080/code/';" style="text-decoration:none; color:black;"><h2>Click here to edit the code</h2></a>
+<div style="position:fixed; left:0; bottom:0;"><a href="javascript:window.location = 'http://' + window.location.hostname + ':8080/code/';" style="text-decoration:none; color:black;"><h2>Click here to edit the code</h2></a></div>
 
 
     <script>

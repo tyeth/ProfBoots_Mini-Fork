@@ -19,8 +19,8 @@ REPORT_BATTERY = False
 BATTERY_PIN = None
 if board.board_id == "adafruit_feather_huzzah32":
     BATTERY_PIN = analogio.AnalogIn(board.VOLTAGE_MONITOR)
-    STEERING_SERVO_PIN = board.D27
-    MAST_TILT_SERVO_PIN = board.D33
+    MAST_TILT_SERVO_PIN = board.D27
+    STEERING_SERVO_PIN = board.D33
     CAB_LIGHTS_PIN = board.D15
     AUX_LIGHTS_PIN = board.D32
     i2c = board.I2C()
@@ -157,7 +157,7 @@ servo_delay = 0
 steering_servo_value = 86
 steering_adjustment = 1
 throttle_value = 0
-steering_trim = 0
+steering_trim = 0  # 60?
 mast_tilt_servo_value = 90
 mast_tilt_value = 90
 light_switch_time = 0
@@ -180,13 +180,13 @@ def mast_tilt_control(mast_tilt_servo_value):
 def mast_control(mast_value):
     if mast_value == 5:
         if mast_motor1 is None:
-            mast_motor0.throttle = 0.5
+            mast_motor0.throttle = -1.0
         else:
             mast_motor0.value = True
             mast_motor1.value = False
     elif mast_value == 6:
         if mast_motor1 is None:
-            mast_motor0.throttle = -0.5
+            mast_motor0.throttle = 1.0
         else:
             mast_motor0.value = False
             mast_motor1.value = True
@@ -217,13 +217,17 @@ def process_throttle(throttle):
 def move_motor(motor_pin0, motor_pin1, velocity):
     if velocity > 15:
         if motor_pin1 is None:
-            motor_pin0.throttle = velocity / 100
+            new_velocity = velocity / 255
+            print(f"New velocity: {new_velocity}")
+            motor_pin0.throttle = new_velocity
         else:
             motor_pin0.value = True
             motor_pin1.value = False
     elif velocity < -15:
         if motor_pin1 is None:
-            motor_pin0.throttle = velocity / 100
+            new_velocity = velocity / 255
+            print(f"New velocity: {new_velocity}")
+            motor_pin0.throttle = new_velocity
         else:
             motor_pin0.value = False
             motor_pin1.value = True
