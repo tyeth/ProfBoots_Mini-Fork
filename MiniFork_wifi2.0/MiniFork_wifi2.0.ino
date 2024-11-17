@@ -183,6 +183,8 @@ void processThrottle(int throttle)
   }
 #endif
 }
+
+
 #ifdef motor_featherwing_i2c_address
 void moveMotor(Adafruit_DCMotor *motor, int velocity)
 {
