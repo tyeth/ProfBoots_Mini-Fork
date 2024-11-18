@@ -3,6 +3,21 @@ html_home_page = """<!DOCTYPE html>
   <head>
   <meta name="viewport" content="width=device-width, initial-scale=.9, maximum-scale=1, user-scalable=yes">
   <style>
+    /* emoji html translations:
+
+    🛗🔼 &#8678;
+    🛗🔽 &#8680;
+    🚗🔼 &#8679;
+    🚗🔽 &#8681;
+    🛗	1F6D7	(unknown)
+    🔼	1F53C	UP-POINTING SMALL RED TRIANGLE
+    🔽	1F53D	DOWN-POINTING SMALL RED TRIANGLE
+    📍	1F4CD	ROUND PUSHPIN
+    ⏩	23E9	BLACK RIGHT-POINTING DOUBLE TRIANGLE
+    ⏪	23EA	BLACK LEFT-POINTING DOUBLE TRIANGLE
+    🔋   &#x1F50B
+    🪫	&#x1FAAB
+    */
     .arrows {
       font-size:50px;
       color:grey;
@@ -117,7 +132,7 @@ html_home_page = """<!DOCTYPE html>
   height: 65px; /* Adjust the height to make the slider thumb thicker */
   background-color: red; /* Background color of the slider thumb */
   border: none; /* Remove the default border */
-  //margin-top: -5px; /* Center the thumb vertically within the track */
+  /* margin-top: -5px; */ /* Center the thumb vertically within the track */
 }
     .vertical-slider::-moz-range-thumb {
       width: 60px;
@@ -150,14 +165,14 @@ html_home_page = """<!DOCTYPE html>
     onmousedown='sendButtonInput("mast", "5")'
     ontouchend='sendButtonInput("mast", "0")'
     onmouseup='sendButtonInput("mast", "0")'>
-    <span class="arrows">&#8678;</span></td>
+    <span class="arrows">&#x1F6D7;&#x1f53c;</span></td>
         <td class="button" ontouchstart='sendButtonInput("light","6")'onmousedown='sendButtonInput("light","6")'onmouseup='sendButtonInput("MoveCar","0")' ontouchend='sendButtonInput("MoveCar","0")'><span class="arrows" >&#9788;</span></td>   
         <td class="button"
     ontouchstart='sendButtonInput("mast", "6")'
     onmousedown='sendButtonInput("mast", "6")'
     ontouchend='sendButtonInput("mast", "0")'
     onmouseup='sendButtonInput("mast", "0")'>
-    <span class="arrows">&#8680;</span></td>
+    <span class="arrows">&#x1f6d7;&#x1f53d;</span></td>
       </tr>
       <tr/>
       <tr/>
@@ -166,7 +181,8 @@ html_home_page = """<!DOCTYPE html>
   <td style="text-align: left; font-size: 25px"><b></b></td>
   <td>
     <div class="vertical-slider-container">
-      <input type="range" min="40" max="132" value="86" class="vertical-slider" id="steering" oninput='sendButtonInput("steering", value)'ontouchend='resetSlider("steering")'>
+      <!-- <input type="range" min="40" max="132" value="86" class="vertical-slider" id="steering" oninput='sendButtonInput("steering", value)'ontouchend='resetSlider("steering")'> -->
+      <input type="range" min="-255" max="255" value="0" class="vertical-slider" id="steering" oninput='sendButtonInput("steering", value)'ontouchend='resetSlider("steering")'>
     </div>
   </td>
   <td>
@@ -174,26 +190,33 @@ html_home_page = """<!DOCTYPE html>
     ontouchstart='startSendingButtonInput("mTilt", "1")'
     onmousedown='startSendingButtonInput("mTilt", "1")'
     ontouchend='stopSendingButtonInput()'
-    onmouseup='stopSendingButtonInput()'>FTILT</button>
+    onmouseup='stopSendingButtonInput()'>&#x23EA;&#x1f4cd;<br/>FTILT</button>
     <button id="auxButton" class="auxButton"
     ontouchstart='startSendingButtonInput("mTilt", "2")'
     onmousedown='startSendingButtonInput("mTilt", "2")'
     ontouchend='stopSendingButtonInput()'
-    onmouseup='stopSendingButtonInput()'>BTILT</button>
+    onmouseup='stopSendingButtonInput()'>&#x23e9;&#x1f4cd;<br/>BTILT</button>
 </td>
 <tr/>
 <tr/>
 </tr>
 </tr>
     </table>
-<div style="position:fixed; left:0; bottom:0;"><a href="javascript:window.location = 'http://' + window.location.hostname + ':8080/code/';" style="text-decoration:none; color:black;"><h2>Click here to edit the code</h2></a></div>
-
+<div style="position:fixed; left:0; top:0;">
+  <a href="javascript:window.location = 'http://' + window.location.hostname + ':8080/code/';" style="text-decoration:none; color:black;">
+    <small>Edit Me</small>
+  </a>
+  <div id="batteryStatus" style="font-size: 20px; opacity: 1; transition: opacity 2s;">
+    &#x1FAAB; ??%
+  </div>
+</div>
 
     <script>
       var webSocketCarInputUrl = "ws://" + window.location.hostname + "/CarInput";      
       var websocketCarInput;
       const throttleSlider = document.getElementById('throttle');
       const steeringSlider = document.getElementById('steering');
+      var batteryStatus = document.getElementById("batteryStatus");
 
       function resetSlider(sliderId) 
       {
@@ -210,6 +233,8 @@ html_home_page = """<!DOCTYPE html>
         websocketCarInput.onmessage = function(event){
           // fields: battery level, etc (only battery so far)
           console.log('Received data: ' + event.data);
+          var data = JSON.parse(event.data);
+          updateBatteryStatus(data);//.batteryLevel);
         };        
       }
       
@@ -224,103 +249,104 @@ html_home_page = """<!DOCTYPE html>
     sendButtonInput(action, value); // Send the initial input when the button is pressed
     intervalId = setInterval(function() {
         sendButtonInput(action, value); // Continuously send the input as long as the button is pressed
-    }, 10); // You can adjust the interval (in milliseconds) to control the rate of sending
+    }, 20); // You can adjust the interval (in milliseconds) to control the rate of sending
     }
 
     function stopSendingButtonInput() {
     clearInterval(intervalId); // Stop sending the input when the button is released
 }
       function handleKeyDown(event) {
-        if (event.keyCode ===88)
+        if (event.keyCode ===88) // X
         {
           sendButtonInput("light", "1");
         }
-        if(event.keyCode == 74)
+        if(event.keyCode == 74) // J
         {
           startSendingButtonInput("mTilt", "1");
         }
-        if(event.keyCode == 76)
+        if(event.keyCode == 76) // L
         {
           startSendingButtonInput("mTilt", "2");
         }
-        if (event.keyCode === 73)
+        if (event.keyCode === 73) // I
         {
           sendButtonInput("mast", "5");
         }
-        if (event.keyCode === 75)
+        if (event.keyCode === 75) // K
         {
           sendButtonInput("mast", "6");
         }
-        if(event.keyCode === 87)
+        if(event.keyCode === 87) // W
         {
-          throttleSlider.value = parseInt(throttleSlider.value) + 255; // You can adjust the increment value as needed
+          throttleSlider.value = 255; //parseInt(throttleSlider.value) + 255; // You can adjust the increment value as needed
           sendButtonInput("throttle",throttleSlider.value);
       // Trigger the 'input' event on the slider to update its value
           throttleSlider.dispatchEvent(new Event('input'));
         }
-        if(event.keyCode === 83)
+        if(event.keyCode === 83) // S
         {
-          throttleSlider.value = parseInt(throttleSlider.value) - 255; // You can adjust the increment value as needed
+          throttleSlider.value = -255;//parseInt(throttleSlider.value) - 255; // You can adjust the increment value as needed
           sendButtonInput("throttle",throttleSlider.value);
       // Trigger the 'input' event on the slider to update its value
           throttleSlider.dispatchEvent(new Event('input'));
         }
-        if(event.keyCode === 65)
+        if(event.keyCode === 65) // A
         {
-          steeringSlider.value = 50; // You can adjust the increment value as needed
-          sendButtonInput("steering",50);
+          steeringSlider.value = -255; // You can adjust the increment value as needed
+          sendButtonInput("steering",-255);
       // Trigger the 'input' event on the slider to update its value
           steeringSlider.dispatchEvent(new Event('input'));
         }
-        if(event.keyCode === 68)
+        if(event.keyCode === 68) // D
         {
-          steeringSlider.value = 130; // You can adjust the increment value as needed
-          sendButtonInput("steering", 130);
+          steeringSlider.value = 255; // You can adjust the increment value as needed
+          sendButtonInput("steering", 255);
       // Trigger the 'input' event on the slider to update its value
           steeringSlider.dispatchEvent(new Event('input'));
         }
         } 
       function handleKeyUp(event) {
-        if(event.keyCode == 74)
+        if(event.keyCode == 74) // J
         {
           stopSendingButtonInput();
         }
-        if(event.keyCode == 76)
+        if(event.keyCode == 76) // L
         {
           stopSendingButtonInput();
         }
-        if (event.keyCode === 73);
+        if (event.keyCode === 73) // I
         {
           sendButtonInput("mast", "0");
         }
-        if (event.keyCode === 75)
+        if (event.keyCode === 75) // K
         {
           sendButtonInput("mast", "0");
         }
-        if(event.keyCode === 87)
+        if(event.keyCode === 87) // W
         {
           throttleSlider.value = 0; // You can adjust the increment value as needed
           sendButtonInput("throttle",0);
           throttleSlider.dispatchEvent(new Event('input'));
           }
-        if(event.keyCode === 83)
+        if(event.keyCode === 83) // S
         {
           throttleSlider.value = 0; // You can adjust the increment value as needed
           sendButtonInput("throttle",0);
           throttleSlider.dispatchEvent(new Event('input'));
         }
-        if(event.keyCode === 65)
+        if(event.keyCode === 65) // A
         {
-          steeringSlider.value = 90; // You can adjust the increment value as needed
-          sendButtonInput("steering", 90);
+          steeringSlider.value = 0; // You can adjust the increment value as needed
+          sendButtonInput("steering", 0);
           steeringSlider.dispatchEvent(new Event('input'));
         }
-        if(event.keyCode === 68)
+        if(event.keyCode === 68) // D
         {
-          steeringSlider.value = 90; // You can adjust the increment value as needed
-          sendButtonInput("steering", 90);
+          steeringSlider.value = 0; // You can adjust the increment value as needed
+          sendButtonInput("steering", 0);
           steeringSlider.dispatchEvent(new Event('input'));
         }
+        stopSendingButtonInput();
         }
       
   
@@ -331,6 +357,18 @@ html_home_page = """<!DOCTYPE html>
       document.addEventListener('keydown', handleKeyDown);
       document.addEventListener('keyup', handleKeyUp); 
            
+      window.battery_opacity_timer = null;
+      function updateBatteryStatus(level) {
+        batteryStatus.innerHTML = `&#x1F50B; ${level/10000}volts`;
+        batteryStatus.style.opacity = 1;
+        if (window.battery_opacity_timer) {
+          clearTimeout(window.battery_opacity_timer);
+        }
+        window.battery_opacity_timer = setTimeout(function() {
+          batteryStatus.style.opacity = 0.5;
+          window.battery_opacity_timer = null;
+        }, 2000);
+      }
     </script>
   </body>    
 </html>"""

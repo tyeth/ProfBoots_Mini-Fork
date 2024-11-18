@@ -63,7 +63,7 @@ Adafruit_DCMotor *mastMotor = AFMS.getMotor(4);
 #endif
 
 int servoDelay = 0;
-float steeringServoValue = 86;
+float steeringServoValueFromHtmlInputWhichDefaultsTo86InTheMiddle = 86;
 float steeringAdjustment = 1;
 int throttleValue = 0;
 int steeringTrim = 0;
@@ -78,15 +78,15 @@ AsyncWebSocket wsCarInput("/CarInput");
 
 void steeringControl(int steeringValue)
 {
-  steeringServoValue = steeringValue;
-  steeringServo.write(steeringServoValue - steeringTrim);
-  if (steeringServoValue > 100)
+  steeringServoValueFromHtmlInputWhichDefaultsTo86InTheMiddle = steeringValue;
+  steeringServo.write(steeringServoValueFromHtmlInputWhichDefaultsTo86InTheMiddle - steeringTrim);
+  if (steeringServoValueFromHtmlInputWhichDefaultsTo86InTheMiddle > 100)
   {
-    steeringAdjustment = ((200 - steeringServoValue) / 100);
+    steeringAdjustment = ((200 - steeringServoValueFromHtmlInputWhichDefaultsTo86InTheMiddle) / 100);
   }
-  else if (steeringServoValue < 80)
+  else if (steeringServoValueFromHtmlInputWhichDefaultsTo86InTheMiddle < 80)
   {
-    steeringAdjustment = ((200 - (90 + (90 - steeringServoValue))) / 100);
+    steeringAdjustment = ((200 - (90 + (90 - steeringServoValueFromHtmlInputWhichDefaultsTo86InTheMiddle))) / 100);
   }
   processThrottle(throttleValue);
 }
@@ -136,12 +136,12 @@ void processThrottle(int throttle)
 #ifdef motor_featherwing_i2c_address
   if (throttleValue > 15 || throttleValue < -15)
   {
-    if (steeringServoValue > 100)
+    if (steeringServoValueFromHtmlInputWhichDefaultsTo86InTheMiddle > 100)
     {
       moveMotor(leftMotor, throttleValue * steeringAdjustment);
       moveMotor(rightMotor, throttleValue);
     }
-    else if (steeringServoValue < 80)
+    else if (steeringServoValueFromHtmlInputWhichDefaultsTo86InTheMiddle < 80)
     {
       moveMotor(leftMotor, throttleValue);
       moveMotor(rightMotor, throttleValue * steeringAdjustment);
@@ -160,12 +160,12 @@ void processThrottle(int throttle)
 #else
   if (throttleValue > 15 || throttleValue < -15)
   {
-    if (steeringServoValue > 100)
+    if (steeringServoValueFromHtmlInputWhichDefaultsTo86InTheMiddle > 100)
     {
       moveMotor(leftMotor0, leftMotor1, throttleValue * steeringAdjustment);
       moveMotor(rightMotor0, rightMotor1, throttleValue);
     }
-    else if (steeringServoValue < 80)
+    else if (steeringServoValueFromHtmlInputWhichDefaultsTo86InTheMiddle < 80)
     {
       moveMotor(leftMotor0, leftMotor1, throttleValue);
       moveMotor(rightMotor0, rightMotor1, throttleValue * steeringAdjustment);
@@ -361,7 +361,7 @@ void setUpPinModes()
 #endif
   steeringServo.attach(steeringServoPin);
   mastTiltServo.attach(mastTiltServoPin);
-  steeringControl(steeringServoValue);
+  steeringControl(steeringServoValueFromHtmlInputWhichDefaultsTo86InTheMiddle);
   mastTiltControl(mastTiltServoValue);
 }
 
