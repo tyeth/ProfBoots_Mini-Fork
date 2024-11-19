@@ -152,7 +152,7 @@ html_home_page = """<!DOCTYPE html>
     <tr>
         <td colspan=2 style="text-align: center;">
          <div class="slidecontainer">
-            <input type="range" min="-255" max="255" value="0" class="slider" id="throttle" oninput='sendButtonInput("throttle",value)' ontouchend='resetSlider("throttle")'>
+            <input type="range" min="-255" max="255" value="0" class="slider" id="throttle" oninput='debouncedSendButtonInput("throttle",value)' ontouchend='resetSlider("throttle")'>
           </div>
         </td>
       </tr>  
@@ -182,7 +182,7 @@ html_home_page = """<!DOCTYPE html>
   <td>
     <div class="vertical-slider-container">
       <!-- <input type="range" min="40" max="132" value="86" class="vertical-slider" id="steering" oninput='sendButtonInput("steering", value)'ontouchend='resetSlider("steering")'> -->
-      <input type="range" min="-255" max="255" value="0" class="vertical-slider" id="steering" oninput='sendButtonInput("steering", value)'ontouchend='resetSlider("steering")'>
+      <input type="range" min="-255" max="255" value="0" class="vertical-slider" id="steering" oninput='debouncedSendButtonInput("steering", value)'ontouchend='resetSlider("steering")'>
     </div>
   </td>
   <td>
@@ -243,9 +243,24 @@ html_home_page = """<!DOCTYPE html>
        var data = key + "," + value;
        websocketCarInput.send(data);
       }
+      
+      function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+          const context = this;
+          clearTimeout(timeout);
+          timeout = setTimeout(() => func.apply(context, args), wait);
+        };
+      }
+
+      const debouncedSendButtonInput = debounce(sendButtonInput, 120);
+      
       let intervalId = null;
 
     function startSendingButtonInput(action, value) {
+    if (intervalId != null) {
+      clearInterval(intervalId);
+    }
     sendButtonInput(action, value); // Send the initial input when the button is pressed
     intervalId = setInterval(function() {
         sendButtonInput(action, value); // Continuously send the input as long as the button is pressed
@@ -255,7 +270,16 @@ html_home_page = """<!DOCTYPE html>
     function stopSendingButtonInput() {
     clearInterval(intervalId); // Stop sending the input when the button is released
 }
+function handleKeyPress(event){
+  console.info("press:" + event.keyCode);
+}
+keys_held = [];
       function handleKeyDown(event) {
+        console.info("key_down:" + event.keyCode);
+        if (keys_held.findIndex(x=>x==event.keyCode)!=-1) {
+          return;
+        }
+        keys_held.push(event.keyCode);
         if (event.keyCode ===88) // X
         {
           sendButtonInput("light", "1");
@@ -281,31 +305,39 @@ html_home_page = """<!DOCTYPE html>
           throttleSlider.value = 255; //parseInt(throttleSlider.value) + 255; // You can adjust the increment value as needed
           sendButtonInput("throttle",throttleSlider.value);
       // Trigger the 'input' event on the slider to update its value
-          throttleSlider.dispatchEvent(new Event('input'));
+          // throttleSlider.dispatchEvent(new Event('input'));
         }
         if(event.keyCode === 83) // S
         {
           throttleSlider.value = -255;//parseInt(throttleSlider.value) - 255; // You can adjust the increment value as needed
           sendButtonInput("throttle",throttleSlider.value);
       // Trigger the 'input' event on the slider to update its value
-          throttleSlider.dispatchEvent(new Event('input'));
+          // throttleSlider.dispatchEvent(new Event('input'));
         }
         if(event.keyCode === 65) // A
         {
-          steeringSlider.value = -255; // You can adjust the increment value as needed
-          sendButtonInput("steering",-255);
+          steeringSlider.value = -120; // You can adjust the increment value as needed
+          sendButtonInput("steering",-120);
       // Trigger the 'input' event on the slider to update its value
-          steeringSlider.dispatchEvent(new Event('input'));
+          // steeringSlider.dispatchEvent(new Event('input'));
         }
         if(event.keyCode === 68) // D
         {
-          steeringSlider.value = 255; // You can adjust the increment value as needed
-          sendButtonInput("steering", 255);
+          steeringSlider.value = 120; // You can adjust the increment value as needed
+          sendButtonInput("steering", 120);
       // Trigger the 'input' event on the slider to update its value
-          steeringSlider.dispatchEvent(new Event('input'));
+          // steeringSlider.dispatchEvent(new Event('input'));
         }
+        event.preventDefault();
+        return false;
         } 
       function handleKeyUp(event) {
+        if (keys_held.findIndex(x=>x==event.keyCode)!=-1) {
+          keys_held = keys_held.filter(function(value, index, arr){return value != event.keyCode;});
+        } else {
+          console.error("Key up event for key that was not held down");
+        }
+        console.info("keyup: " + event.keyCode);
         if(event.keyCode == 74) // J
         {
           stopSendingButtonInput();
@@ -326,25 +358,25 @@ html_home_page = """<!DOCTYPE html>
         {
           throttleSlider.value = 0; // You can adjust the increment value as needed
           sendButtonInput("throttle",0);
-          throttleSlider.dispatchEvent(new Event('input'));
+          // throttleSlider.dispatchEvent(new Event('input'));
           }
         if(event.keyCode === 83) // S
         {
           throttleSlider.value = 0; // You can adjust the increment value as needed
           sendButtonInput("throttle",0);
-          throttleSlider.dispatchEvent(new Event('input'));
+          // throttleSlider.dispatchEvent(new Event('input'));
         }
         if(event.keyCode === 65) // A
         {
           steeringSlider.value = 0; // You can adjust the increment value as needed
           sendButtonInput("steering", 0);
-          steeringSlider.dispatchEvent(new Event('input'));
+          // steeringSlider.dispatchEvent(new Event('input'));
         }
         if(event.keyCode === 68) // D
         {
           steeringSlider.value = 0; // You can adjust the increment value as needed
           sendButtonInput("steering", 0);
-          steeringSlider.dispatchEvent(new Event('input'));
+          // steeringSlider.dispatchEvent(new Event('input'));
         }
         stopSendingButtonInput();
         }
@@ -356,6 +388,7 @@ html_home_page = """<!DOCTYPE html>
       });
       document.addEventListener('keydown', handleKeyDown);
       document.addEventListener('keyup', handleKeyUp); 
+      document.addEventListener('keypress', handleKeyPress); 
            
       window.battery_opacity_timer = null;
       function updateBatteryStatus(level) {
