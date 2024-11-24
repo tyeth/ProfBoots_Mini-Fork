@@ -212,41 +212,38 @@ html_home_page = """<!DOCTYPE html>
 </div>
 
     <script>
-      var webSocketCarInputUrl = "ws://" + window.location.hostname + "/CarInput";      
+      var webSocketCarInputUrl = "ws://" + window.location.hostname + "/CarInput";
       var websocketCarInput;
       const throttleSlider = document.getElementById('throttle');
       const steeringSlider = document.getElementById('steering');
       var batteryStatus = document.getElementById("batteryStatus");
 
-      function resetSlider(sliderId) 
-      {
-       var slider = document.getElementById(sliderId);
-       var middleValue = (parseInt(slider.min) + parseInt(slider.max)) / 2;
-       slider.value = middleValue;
-       sendButtonInput(sliderId, middleValue);
+      function resetSlider(sliderId) {
+        var slider = document.getElementById(sliderId);
+        var middleValue = (parseInt(slider.min) + parseInt(slider.max)) / 2;
+        slider.value = middleValue;
+        sendButtonInput(sliderId, middleValue);
       }
-      
-      function initCarInputWebSocket() 
-      {
+
+      function initCarInputWebSocket() {
         websocketCarInput = new WebSocket(webSocketCarInputUrl);
-        websocketCarInput.onclose   = function(event){setTimeout(initCarInputWebSocket, 2000);};
-        websocketCarInput.onmessage = function(event){
+        websocketCarInput.onclose = function (event) { setTimeout(initCarInputWebSocket, 2000); };
+        websocketCarInput.onmessage = function (event) {
           // fields: battery level, etc (only battery so far)
           console.log('Received data: ' + event.data);
           var data = JSON.parse(event.data);
           updateBatteryStatus(data);//.batteryLevel);
-        };        
+        };
       }
-      
-      function sendButtonInput(key, value) 
-      {
-       var data = key + "," + value;
-       websocketCarInput.send(data);
+
+      function sendButtonInput(key, value) {
+        var data = key + "," + value;
+        websocketCarInput.send(data);
       }
-      
+
       function debounce(func, wait) {
         let timeout;
-        return function(...args) {
+        return function (...args) {
           const context = this;
           clearTimeout(timeout);
           timeout = setTimeout(() => func.apply(context, args), wait);
@@ -254,41 +251,42 @@ html_home_page = """<!DOCTYPE html>
       }
 
       const debouncedSendButtonInput = debounce(sendButtonInput, 120);
-      
+
       let intervalId = null;
 
-    function startSendingButtonInput(action, value) {
-    if (intervalId != null) {
-      clearInterval(intervalId);
-    }
-    sendButtonInput(action, value); // Send the initial input when the button is pressed
-    intervalId = setInterval(function() {
-        sendButtonInput(action, value); // Continuously send the input as long as the button is pressed
-    }, 20); // You can adjust the interval (in milliseconds) to control the rate of sending
-    }
 
-    function stopSendingButtonInput() {
-    clearInterval(intervalId); // Stop sending the input when the button is released
-}
-function handleKeyPress(event){
-  console.info("press:" + event.keyCode);
-}
-keys_held = [];
+      function startSendingButtonInput(action, value) {
+        if (intervalId != null) {
+          clearInterval(intervalId);
+        }
+        sendButtonInput(action, value); // Send the initial input when the button is pressed
+        intervalId = setInterval(function () {
+          sendButtonInput(action, value); // Continuously send the input as long as the button is pressed
+        }, 20); // You can adjust the interval (in milliseconds) to control the rate of sending
+      }
+
+      function stopSendingButtonInput() {
+        clearInterval(intervalId); // Stop sending the input when the button is released
+      }
+      function handleKeyPress(event) {
+        console.info("press:" + event.keyCode);
+      }
+      keys_held = [];
       function handleKeyDown(event) {
         console.info("key_down:" + event.keyCode);
-        if (keys_held.findIndex(x=>x==event.keyCode)!=-1) {
+        if (keys_held.findIndex(x => x == event.keyCode) != -1) {
           return;
         }
         keys_held.push(event.keyCode);
-        if (event.keyCode ===88) // X
+        if (event.keyCode === 88) // X
         {
           sendButtonInput("light", "1");
         }
-        if(event.keyCode == 74) // J
+        if (event.keyCode == 74) // J
         {
           startSendingButtonInput("mTilt", "1");
         }
-        if(event.keyCode == 76) // L
+        if (event.keyCode == 76) // L
         {
           startSendingButtonInput("mTilt", "2");
         }
@@ -300,49 +298,49 @@ keys_held = [];
         {
           sendButtonInput("mast", "6");
         }
-        if(event.keyCode === 87) // W
+        if (event.keyCode === 87) // W
         {
           throttleSlider.value = 255; //parseInt(throttleSlider.value) + 255; // You can adjust the increment value as needed
-          sendButtonInput("throttle",throttleSlider.value);
-      // Trigger the 'input' event on the slider to update its value
+          sendButtonInput("throttle", throttleSlider.value);
+          // Trigger the 'input' event on the slider to update its value
           // throttleSlider.dispatchEvent(new Event('input'));
         }
-        if(event.keyCode === 83) // S
+        if (event.keyCode === 83) // S
         {
           throttleSlider.value = -255;//parseInt(throttleSlider.value) - 255; // You can adjust the increment value as needed
-          sendButtonInput("throttle",throttleSlider.value);
-      // Trigger the 'input' event on the slider to update its value
+          sendButtonInput("throttle", throttleSlider.value);
+          // Trigger the 'input' event on the slider to update its value
           // throttleSlider.dispatchEvent(new Event('input'));
         }
-        if(event.keyCode === 65) // A
+        if (event.keyCode === 65) // A
         {
           steeringSlider.value = -120; // You can adjust the increment value as needed
-          sendButtonInput("steering",-120);
-      // Trigger the 'input' event on the slider to update its value
+          sendButtonInput("steering", -120);
+          // Trigger the 'input' event on the slider to update its value
           // steeringSlider.dispatchEvent(new Event('input'));
         }
-        if(event.keyCode === 68) // D
+        if (event.keyCode === 68) // D
         {
           steeringSlider.value = 120; // You can adjust the increment value as needed
           sendButtonInput("steering", 120);
-      // Trigger the 'input' event on the slider to update its value
+          // Trigger the 'input' event on the slider to update its value
           // steeringSlider.dispatchEvent(new Event('input'));
         }
         event.preventDefault();
         return false;
-        } 
+      }
       function handleKeyUp(event) {
-        if (keys_held.findIndex(x=>x==event.keyCode)!=-1) {
-          keys_held = keys_held.filter(function(value, index, arr){return value != event.keyCode;});
+        if (keys_held.findIndex(x => x == event.keyCode) != -1) {
+          keys_held = keys_held.filter(function (value, index, arr) { return value != event.keyCode; });
         } else {
           console.error("Key up event for key that was not held down");
         }
         console.info("keyup: " + event.keyCode);
-        if(event.keyCode == 74) // J
+        if (event.keyCode == 74) // J
         {
           stopSendingButtonInput();
         }
-        if(event.keyCode == 76) // L
+        if (event.keyCode == 76) // L
         {
           stopSendingButtonInput();
         }
@@ -354,50 +352,50 @@ keys_held = [];
         {
           sendButtonInput("mast", "0");
         }
-        if(event.keyCode === 87) // W
+        if (event.keyCode === 87) // W
         {
           throttleSlider.value = 0; // You can adjust the increment value as needed
-          sendButtonInput("throttle",0);
-          // throttleSlider.dispatchEvent(new Event('input'));
-          }
-        if(event.keyCode === 83) // S
-        {
-          throttleSlider.value = 0; // You can adjust the increment value as needed
-          sendButtonInput("throttle",0);
+          sendButtonInput("throttle", 0);
           // throttleSlider.dispatchEvent(new Event('input'));
         }
-        if(event.keyCode === 65) // A
+        if (event.keyCode === 83) // S
+        {
+          throttleSlider.value = 0; // You can adjust the increment value as needed
+          sendButtonInput("throttle", 0);
+          // throttleSlider.dispatchEvent(new Event('input'));
+        }
+        if (event.keyCode === 65) // A
         {
           steeringSlider.value = 0; // You can adjust the increment value as needed
           sendButtonInput("steering", 0);
           // steeringSlider.dispatchEvent(new Event('input'));
         }
-        if(event.keyCode === 68) // D
+        if (event.keyCode === 68) // D
         {
           steeringSlider.value = 0; // You can adjust the increment value as needed
           sendButtonInput("steering", 0);
           // steeringSlider.dispatchEvent(new Event('input'));
         }
         stopSendingButtonInput();
-        }
-      
-  
+      }
+
+
       window.onload = initCarInputWebSocket;
-      document.getElementById("mainTable").addEventListener("touchend", function(event){
+      document.getElementById("mainTable").addEventListener("touchend", function (event) {
         event.preventDefault()
       });
       document.addEventListener('keydown', handleKeyDown);
-      document.addEventListener('keyup', handleKeyUp); 
-      document.addEventListener('keypress', handleKeyPress); 
-           
+      document.addEventListener('keyup', handleKeyUp);
+      document.addEventListener('keypress', handleKeyPress);
+
       window.battery_opacity_timer = null;
       function updateBatteryStatus(level) {
-        batteryStatus.innerHTML = `&#x1F50B; ${level/10000}volts`;
+        batteryStatus.innerHTML = `&#x1F50B; ${level / 10000}volts`;
         batteryStatus.style.opacity = 1;
         if (window.battery_opacity_timer) {
           clearTimeout(window.battery_opacity_timer);
         }
-        window.battery_opacity_timer = setTimeout(function() {
+        window.battery_opacity_timer = setTimeout(function () {
           batteryStatus.style.opacity = 0.5;
           window.battery_opacity_timer = null;
         }, 2000);
