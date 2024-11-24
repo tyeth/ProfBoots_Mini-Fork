@@ -97,8 +97,8 @@ if board.board_id == "adafruit_feather_huzzah32":
 else:  # adafruit feather bluetooth nrf52840 pins:
     raise NotImplementedError("This board is not supported.")
 
-# WiFi credentials if hosting AP
-HOST_AP = False
+# WiFi credentials if hosting AP - set HOST_AP to True and comment out settings.toml
+HOST_AP = os.getenv('CIRCUITPYTHON_WIFI_SSID',None) is None
 SSID = "MiniFork"
 PASSWORD = ""
 
@@ -141,13 +141,12 @@ if not I2C_MOTOR_DRIVER:
 
 # Initialize WiFi
 if HOST_AP:
-    logger.info("Starting AP..")
+    logger.info(f"Starting AP {SSID} (192.168.4.1)...")
     ipv4 = ipaddress.IPv4Address("192.168.4.1")
     netmask = ipaddress.IPv4Address("255.255.255.0")
     gateway = ipaddress.IPv4Address("192.168.4.1")
     wifi.radio.set_ipv4_address(ipv4=ipv4, netmask=netmask, gateway=gateway)
     wifi.radio.start_ap(SSID, PASSWORD)
-    logger.info("AP started")
 else:
     if wifi.radio.connected:
         logger.info("Already connected to WiFi")
@@ -174,8 +173,8 @@ def base(request: Request):  # pylint: disable=unused-argument
 
 logger.info("starting server..")
 try:
-    server.start(str(wifi.radio.ipv4_address), 80)
-    logger.info("Listening on http://%s:80" % wifi.radio.ipv4_address)
+    server.start(str(wifi.radio.ipv4_address if wifi.radio.ipv4_address else ipv4), 80)
+    logger.info("Listening on http://%s:80" % wifi.radio.ipv4_address if wifi.radio.ipv4_address else ipv4)
 except OSError:
     time.sleep(5)
     logger.info("restarting..")
@@ -247,16 +246,24 @@ def process_throttle(throttle):
     throttle_value = throttle
     if throttle_value > 15 or throttle_value < -15:
         if steering_servo_value > 100:
+            logger.info("left motor:")
             move_motor(left_motor0, left_motor1, throttle_value * steering_left_right_motor_ratio_adjustment)
+            logger.info("right motor:")
             move_motor(right_motor0, right_motor1, throttle_value)
         elif steering_servo_value < 80:
+            logger.info("left motor:")
             move_motor(left_motor0, left_motor1, throttle_value)
+            logger.info("right motor:")
             move_motor(right_motor0, right_motor1, throttle_value * steering_left_right_motor_ratio_adjustment)
         else:
+            logger.info("left motor:")
             move_motor(left_motor0, left_motor1, throttle_value)
+            logger.info("right motor:")
             move_motor(right_motor0, right_motor1, throttle_value)
     else:
+        logger.info("left motor:")
         move_motor(left_motor0, left_motor1, 0)
+        logger.info("right motor:")
         move_motor(right_motor0, right_motor1, 0)
 
 
@@ -264,7 +271,7 @@ def move_motor(motor_pin0, motor_pin1, velocity):
     if velocity > 15:
         if motor_pin1 is None:
             new_velocity = velocity / 255
-            logger.info(f"New velocity: {new_velocity}")
+            logger.info(f"Positive New velocity: {new_velocity}")
             motor_pin0.throttle = new_velocity
         else:
             motor_pin0.value = True
@@ -272,13 +279,14 @@ def move_motor(motor_pin0, motor_pin1, velocity):
     elif velocity < -15:
         if motor_pin1 is None:
             new_velocity = velocity / 255
-            logger.info(f"New velocity: {new_velocity}")
+            logger.info(f"Negative New velocity: {new_velocity}")
             motor_pin0.throttle = new_velocity
         else:
             motor_pin0.value = False
             motor_pin1.value = True
     else:
         if motor_pin1 is None:
+            logger.info("throttle 0")
             motor_pin0.throttle = 0
         else:
             motor_pin0.value = False
@@ -313,14 +321,14 @@ def mast_tilt(mast_tilt):
     # mast_tilt = (mast_tilt + 255) / 510 * 180
     # logger.debug(f"mast_tilt (scaled by /510 * 180): {mast_tilt}")
     if mast_tilt == 1:  # forwards
-        if servo_delay == 2:
+        if servo_delay >=2:
             if mast_tilt_value >= (10 * angle_scale) and mast_tilt_value < (165 * angle_scale):
                 mast_tilt_value += 2
                 mast_tilt_servo.angle = mast_tilt_value * angle_scale
             servo_delay = 0
         servo_delay += 1
     else:               # backwards
-        if servo_delay == 2:
+        if servo_delay >= 1:
             if mast_tilt_value <= (170 * angle_scale) and mast_tilt_value > (15 * angle_scale):
                 mast_tilt_value -= 2
                 mast_tilt_servo.angle = mast_tilt_value * angle_scale
@@ -381,7 +389,7 @@ async def send_websocket_messages():
             if REPORT_BATTERY and BATTERY_PIN is not None:
                 battery_voltage = BATTERY_PIN.value
                 logger.debug(f"Attempting to send Battery voltage: {battery_voltage}")
-                websocket.send_message(str(battery_voltage), fail_silently=False)
+                websocket.send_message(str(battery_voltage), fail_silently=True)
                 logger.debug("sent?")
         await async_sleep(2)
 
@@ -397,3 +405,5 @@ async def main():
 # Main program
 setup()
 run(main())
+
+
