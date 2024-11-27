@@ -166,7 +166,7 @@ html_home_page = """<!DOCTYPE html>
     ontouchend='sendButtonInput("mast", "0")'
     onmouseup='sendButtonInput("mast", "0")'>
     <span class="arrows">&#x1F6D7;&#x1f53c;</span></td>
-        <td class="button" ontouchstart='sendButtonInput("light","6")'onmousedown='sendButtonInput("light","6")'onmouseup='sendButtonInput("MoveCar","0")' ontouchend='sendButtonInput("MoveCar","0")'><span class="arrows" >&#9788;</span></td>   
+        <td class="button" ontouchstart='sendButtonInput("light","6")' onmousedown='sendButtonInput("light","6")'onmouseup='sendButtonInput("light","0")' ontouchend='sendButtonInput("light","0")'><span class="arrows" >&#9788;</span></td>   
         <td class="button"
     ontouchstart='sendButtonInput("mast", "6")'
     onmousedown='sendButtonInput("mast", "6")'
@@ -189,13 +189,13 @@ html_home_page = """<!DOCTYPE html>
     <button id="auxButton" class="auxButton"
     ontouchstart='startSendingButtonInput("mTilt", "1")'
     onmousedown='startSendingButtonInput("mTilt", "1")'
-    ontouchend='stopSendingButtonInput()'
-    onmouseup='stopSendingButtonInput()'>&#x23EA;&#x1f4cd;<br/>FTILT</button>
+    ontouchend='stopSendingButtonInput("mTilt")'
+    onmouseup='stopSendingButtonInput("mTilt")'>&#x23EA;&#x1f4cd;<br/>FTILT</button>
     <button id="auxButton" class="auxButton"
     ontouchstart='startSendingButtonInput("mTilt", "2")'
     onmousedown='startSendingButtonInput("mTilt", "2")'
-    ontouchend='stopSendingButtonInput()'
-    onmouseup='stopSendingButtonInput()'>&#x23e9;&#x1f4cd;<br/>BTILT</button>
+    ontouchend='stopSendingButtonInput("mTilt")'
+    onmouseup='stopSendingButtonInput("mTilt")'>&#x23e9;&#x1f4cd;<br/>BTILT</button>
 </td>
 <tr/>
 <tr/>
@@ -240,38 +240,54 @@ html_home_page = """<!DOCTYPE html>
         var data = key + "," + value;
         websocketCarInput.send(data);
       }
+      
+      let intervals = {};
+      let timers = {};
+      function clearPreviousTimeoutsAndIntervals(key) {
+        if (Object.keys(intervals).includes(key)) {
+          console.debug("Clearing interval for key: " + key);
+          clearTimeout(intervals[key]);
+        } else {
+          console.debug("No previous interval for key: " + key);
+        }
+        if (Object.keys(timers).includes(key)) {
+          console.debug("Clearing timeout for key: " + key);
+          clearTimeout(timers[key]);
+        } else {
+          console.debug("No previous timeout for key: " + key);
+        }
+      }
 
       function debounce(func, wait) {
-        let timeout;
         return function (...args) {
           const context = this;
-          clearTimeout(timeout);
-          timeout = setTimeout(() => func.apply(context, args), wait);
+          key = args[0]; // steering etc
+          clearPreviousTimeoutsAndIntervals(key);
+          timers[key] = setTimeout(() => func.apply(context, args), wait);
         };
       }
 
       const debouncedSendButtonInput = debounce(sendButtonInput, 120);
 
-      let intervalId = null;
-
-
       function startSendingButtonInput(action, value) {
-        if (intervalId != null) {
-          clearInterval(intervalId);
-        }
+        clearPreviousTimeoutsAndIntervals(action);
         sendButtonInput(action, value); // Send the initial input when the button is pressed
-        intervalId = setInterval(function () {
+        intervals[action] = setInterval(function () {
           sendButtonInput(action, value); // Continuously send the input as long as the button is pressed
-        }, 20); // You can adjust the interval (in milliseconds) to control the rate of sending
+        }, 40); // You can adjust the interval (in milliseconds) to control the rate of sending
       }
 
-      function stopSendingButtonInput() {
-        clearInterval(intervalId); // Stop sending the input when the button is released
+      function stopSendingButtonInput(action) {
+        clearPreviousTimeoutsAndIntervals(action); // Stop sending the input when the button is released
       }
+      
       function handleKeyPress(event) {
         console.info("press:" + event.keyCode);
       }
+
+      
       keys_held = [];
+      
       function handleKeyDown(event) {
         console.info("key_down:" + event.keyCode);
         if (keys_held.findIndex(x => x == event.keyCode) != -1) {
@@ -336,13 +352,17 @@ html_home_page = """<!DOCTYPE html>
           console.error("Key up event for key that was not held down");
         }
         console.info("keyup: " + event.keyCode);
+        if (event.keyCode === 88) // X
+        {
+          sendButtonInput("light", "0");
+        }
         if (event.keyCode == 74) // J
         {
-          stopSendingButtonInput();
+          stopSendingButtonInput("mTilt");
         }
         if (event.keyCode == 76) // L
         {
-          stopSendingButtonInput();
+          stopSendingButtonInput("mTilt");
         }
         if (event.keyCode === 73) // I
         {
@@ -376,7 +396,7 @@ html_home_page = """<!DOCTYPE html>
           sendButtonInput("steering", 0);
           // steeringSlider.dispatchEvent(new Event('input'));
         }
-        stopSendingButtonInput();
+        // stopSendingButtonInput();
       }
 
 

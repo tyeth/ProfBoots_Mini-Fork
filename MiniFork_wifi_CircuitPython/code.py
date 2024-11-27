@@ -23,16 +23,15 @@ from adafruit_httpserver import Server, Request, Response, Websocket, GET
 
 import adafruit_logging as logging
 
-logger = logging.getLogger("MiniFork")
-logger.setLevel(logging.DEBUG)
-logger.info("MiniFork WiFi CircuitPython edition starting..")
 # Constants
+LOG_LEVEL = logging.DEBUG # or use logging.INFO for normal operation
 I2C_MOTOR_DRIVER = False
 I2C_MOTOR_DRIVER_ADDRESS = 0x60
 REPORT_BATTERY = False
 BATTERY_PIN = None
 STEERING_SERVO_TOTAL_ANGLE = 180
 MAST_SERVO_TOTAL_ANGLE = 180
+SLASH_N = chr(10) # newline character - circuitpython editor doesn't like slash n
 # Global variables
 servo_delay = 0
 steering_servo_value = 0  # 135
@@ -43,6 +42,9 @@ mast_tilt_servo_value = 90
 mast_tilt_value = 90
 mast_motor_speed = 1.0
 
+logger = logging.getLogger("MiniFork")
+logger.setLevel(LOG_LEVEL)
+logger.info("MiniFork WiFi CircuitPython edition starting..")
 logger.debug("Globals:")
 logger.debug(f"servo_delay: {servo_delay}")
 logger.debug(f"steering_servo_value: {steering_servo_value}")
@@ -83,22 +85,31 @@ if board.board_id == "adafruit_feather_huzzah32":
         aux_attach0 = AUX_MOTOR
         aux_attach1 = None
     else:
-        logger.info("Adafruit Motor FeatherWing not found, falling back to original design\n")
+        logger.info(f"Adafruit Motor FeatherWing not found, falling back to original design{SLASH_N}") # cpy bug with slash n
         i2c.unlock()
         MAST_MOTOR0_PIN = board.D25
         MAST_MOTOR1_PIN = board.D26
         AUX_ATTACH0_PIN = board.D18
         AUX_ATTACH1_PIN = board.D17
-
         LEFT_MOTOR0_PIN = board.D21
         LEFT_MOTOR1_PIN = board.D19
         RIGHT_MOTOR0_PIN = board.D33
         RIGHT_MOTOR1_PIN = board.D32
+        logger.info("Pins:")
+        logger.info(f"MAST_MOTOR0_PIN: {MAST_MOTOR0_PIN}")
+        logger.info(f"MAST_MOTOR1_PIN: {MAST_MOTOR1_PIN}")
+        logger.info(f"AUX_ATTACH0_PIN: {AUX_ATTACH0_PIN}")
+        logger.info(f"AUX_ATTACH1_PIN: {AUX_ATTACH1_PIN}")
+        logger.info(f"LEFT_MOTOR0_PIN: {LEFT_MOTOR0_PIN}")
+        logger.info(f"LEFT_MOTOR1_PIN: {LEFT_MOTOR1_PIN}")
+        logger.info(f"RIGHT_MOTOR0_PIN: {RIGHT_MOTOR0_PIN}")
+        logger.info(f"RIGHT_MOTOR1_PIN: {RIGHT_MOTOR1_PIN}")
+
 else:  # adafruit feather bluetooth nrf52840 pins:
     raise NotImplementedError("This board is not supported.")
 
 # WiFi credentials if hosting AP - set HOST_AP to True and comment out settings.toml
-HOST_AP = os.getenv('CIRCUITPYTHON_WIFI_SSID',None) is None
+HOST_AP = os.getenv('CIRCUITPY_WIFI_SSID', None) is None
 SSID = "MiniFork"
 PASSWORD = ""
 
@@ -213,7 +224,7 @@ def steering_control(steering_value):
     elif steering_servo_value < 80:
         logger.debug(f"steering_servo_value < 80, adjustment: 200 - (90 + (90 - steering_servo_value))/100")
         steering_left_right_motor_ratio_adjustment = (200 - (90 + (90 - steering_servo_value))) / 100
-    logger.debug(f"new steering__left_right_adjustment: {steering_left_right_motor_ratio_adjustment}\nshould be 0-1")
+    logger.debug(f"new steering__left_right_adjustment: {steering_left_right_motor_ratio_adjustment}{SLASH_N}should be 0-1")
     process_throttle(throttle_value)
 
 
@@ -328,7 +339,7 @@ def mast_tilt(mast_tilt):
             servo_delay = 0
         servo_delay += 1
     else:               # backwards
-        if servo_delay >= 1:
+        if servo_delay >= 2:
             if mast_tilt_value <= (170 * angle_scale) and mast_tilt_value > (15 * angle_scale):
                 mast_tilt_value -= 2
                 mast_tilt_servo.angle = mast_tilt_value * angle_scale
