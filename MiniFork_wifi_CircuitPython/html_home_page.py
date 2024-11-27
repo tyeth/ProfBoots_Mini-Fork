@@ -226,19 +226,25 @@ html_home_page = """<!DOCTYPE html>
       }
 
       function initCarInputWebSocket() {
+        console.debug("Connecting to websocket: " + webSocketCarInputUrl);
         websocketCarInput = new WebSocket(webSocketCarInputUrl);
-        websocketCarInput.onclose = function (event) { setTimeout(initCarInputWebSocket, 2000); };
+        websocketCarInput.onclose = function (event) {
+          console.info("Websocket disconnected, reconnecting in 2seconds");
+          setTimeout(initCarInputWebSocket, 2000);
+        };
         websocketCarInput.onmessage = function (event) {
           // fields: battery level, etc (only battery so far)
           console.log('Received data: ' + event.data);
           var data = JSON.parse(event.data);
           updateBatteryStatus(data);//.batteryLevel);
         };
+        console.debug("Websocket status: " + websocketCarInput.readyState + " (readyState values: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED)");
       }
 
       function sendButtonInput(key, value) {
         var data = key + "," + value;
         websocketCarInput.send(data);
+        console.debug("WS sent data: " + data);
       }
       
       let intervals = {};
@@ -271,8 +277,10 @@ html_home_page = """<!DOCTYPE html>
 
       function startSendingButtonInput(action, value) {
         clearPreviousTimeoutsAndIntervals(action);
+        console.debug("Sending first interval based input for action: " + action + " with value: " + value);
         sendButtonInput(action, value); // Send the initial input when the button is pressed
         intervals[action] = setInterval(function () {
+          console.debug("Sending interval based input for action: " + action + " with value: " + value);
           sendButtonInput(action, value); // Continuously send the input as long as the button is pressed
         }, 40); // You can adjust the interval (in milliseconds) to control the rate of sending
       }
@@ -282,7 +290,7 @@ html_home_page = """<!DOCTYPE html>
       }
       
       function handleKeyPress(event) {
-        console.info("press:" + event.keyCode);
+        console.debug("ignoring presses (recieved:" + event.keyCode + ")");
       }
 
       

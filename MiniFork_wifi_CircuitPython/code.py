@@ -31,6 +31,7 @@ REPORT_BATTERY = False
 BATTERY_PIN = None
 STEERING_SERVO_TOTAL_ANGLE = 180
 MAST_SERVO_TOTAL_ANGLE = 180
+MAST_SPEED = 1 # 2 for slow, 1 for fast, maybe 0 for insanity?
 SLASH_N = chr(10) # newline character - circuitpython editor doesn't like slash n
 # Global variables
 servo_delay = 0
@@ -63,6 +64,11 @@ if board.board_id == "adafruit_feather_huzzah32":
     STEERING_SERVO_PIN = board.D33
     CAB_LIGHTS_PIN = board.D15
     AUX_LIGHTS_PIN = board.D32
+    logger.info("Light/Servo Pins:")
+    logger.info(f"MAST_TILT_SERVO_PIN: {MAST_TILT_SERVO_PIN}")
+    logger.info(f"STEERING_SERVO_PIN: {STEERING_SERVO_PIN}")
+    logger.info(f"CAB_LIGHTS_PIN: {CAB_LIGHTS_PIN}")
+    logger.info(f"AUX_LIGHTS_PIN: {AUX_LIGHTS_PIN}")
     i2c = board.I2C()
     while not i2c.try_lock():
         pass
@@ -84,6 +90,11 @@ if board.board_id == "adafruit_feather_huzzah32":
         mast_motor1 = None
         aux_attach0 = AUX_MOTOR
         aux_attach1 = None
+        logger.info("Featherwing Motor Pins:")
+        logger.info(f"MAST_MOTOR: M4")
+        logger.info(f"AUX_MOTOR: M3")
+        logger.info(f"LEFT_MOTOR : M1")
+        logger.info(f"RIGHT_MOTOR: M2")
     else:
         logger.info(f"Adafruit Motor FeatherWing not found, falling back to original design{SLASH_N}") # cpy bug with slash n
         i2c.unlock()
@@ -95,7 +106,7 @@ if board.board_id == "adafruit_feather_huzzah32":
         LEFT_MOTOR1_PIN = board.D19
         RIGHT_MOTOR0_PIN = board.D33
         RIGHT_MOTOR1_PIN = board.D32
-        logger.info("Pins:")
+        logger.info("Motor Pins:")
         logger.info(f"MAST_MOTOR0_PIN: {MAST_MOTOR0_PIN}")
         logger.info(f"MAST_MOTOR1_PIN: {MAST_MOTOR1_PIN}")
         logger.info(f"AUX_ATTACH0_PIN: {AUX_ATTACH0_PIN}")
@@ -229,6 +240,7 @@ def steering_control(steering_value):
 
 
 def mast_tilt_control(mast_tilt_servo_value):
+    logger.debug(f"mast_tilt_servo_value (angle): {mast_tilt_servo_value}")
     mast_tilt_servo.angle = mast_tilt_servo_value
 
 def mast_control(mast_value):
@@ -325,24 +337,24 @@ def light_control():
 
 
 def mast_tilt(mast_tilt):
-    global mast_tilt_value, servo_delay
+    global mast_tilt_value, servo_delay, MAST_SPEED, MAST_SERVO_TOTAL_ANGLE, mast_tilt_servo
     # eventually will be -255 to 255 instead of a truncated 0-180 (40-132), apply to MAST_TILT_SERVO_TOTAL_ANGLE
-    logger.debug(f"mast_tilt arg: {mast_tilt}")
+    logger.debug(f"mast_tilt arg: {mast_tilt}, mast_tilt_value: {mast_tilt_value}, current angle: {mast_tilt_servo.angle}")
     angle_scale = scale_factor_for_servo_angle(MAST_SERVO_TOTAL_ANGLE)
     # mast_tilt = (mast_tilt + 255) / 510 * 180
     # logger.debug(f"mast_tilt (scaled by /510 * 180): {mast_tilt}")
     if mast_tilt == 1:  # forwards
-        if servo_delay >=2:
+        if servo_delay >= MAST_SPEED:
             if mast_tilt_value >= (10 * angle_scale) and mast_tilt_value < (165 * angle_scale):
-                mast_tilt_value += 2
-                mast_tilt_servo.angle = mast_tilt_value * angle_scale
+                mast_tilt_value += MAST_SPEED
+                mast_tilt_control(mast_tilt_value * angle_scale)
             servo_delay = 0
         servo_delay += 1
     else:               # backwards
-        if servo_delay >= 2:
+        if servo_delay >= MAST_SPEED:
             if mast_tilt_value <= (170 * angle_scale) and mast_tilt_value > (15 * angle_scale):
-                mast_tilt_value -= 2
-                mast_tilt_servo.angle = mast_tilt_value * angle_scale
+                mast_tilt_value -= MAST_SPEED
+                mast_tilt_control(mast_tilt_value * angle_scale)
             servo_delay = 0
         servo_delay += 1
     logger.debug(f"new mast_tilt_servo.angle: {mast_tilt_servo.angle}")
